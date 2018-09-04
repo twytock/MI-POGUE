@@ -1,0 +1,5 @@
+load('SuppFullArchive.RData')
+write.table(frmeDataHughes,'HughesGenExp.tsv',sep='\t')
+write.table(frmeDataGresham,'GreshamGenExp.tsv',sep='\t')
+write.table(frmeDataCharles,'CharlesGenExp.tsv',sep='\t')
+write(vdRealHughes,'HughesGrowth.tsv',ncolumns = 1)
