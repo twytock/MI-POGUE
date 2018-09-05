@@ -17,66 +17,62 @@ Code and supporting data to run Model-Independent Prediction of Growth Using Exp
 		1. Bioconductor 
 		2. WGCNA
 		3. flashClust
-2. Download files from MI-POGUE/
+2. Download files from MI_POGUE/
 	1. This will unpack the source code, scripts to run the analyses, and the data.
-	2. A directory called MI_POGUE/ will be created. It should contain 6 bash scripts. e.g.,
-```bash
-   ./$ cd MI-POGUE
-   ./MI-POGUE/$ ls
-	correlation_analysis.sh        ecoli_analysis.sh
-	yeast_analysis.sh              generate_figures.sh
-	linear_model_analysis.sh       wgcna_analysis.sh
-```
-  3. Navigate to this directory. The subdirectories MI_POGUE/data and MI_POGUE/source_files contain the data and source code, respectively.
+	2. A directory called MI_POGUE/ will be created. It should contain 6 bash scripts:
+		1. correlation_analysis.sh        
+		2. ecoli_analysis.sh
+		3. yeast_analysis.sh              
+		4. generate_figures.sh
+		5. linear_model_analysis.sh
+		6. wgcna_analysis.sh
+	3. Navigate to this MI_POGUE/. The subdirectories MI_POGUE/data and MI_POGUE/source_files contain the data and source code, respectively.
 3. *S. cerevisiae* analysis pipeline
-  1. Download data from Airoldi *et al.* Predicting cellular growth from gene expression signatures *PLoS Comput. Biol.* **5**(1):e1000257 2009.  [Dataset S1](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000257#s5) This will download SuppFullArchive.RData to your Downloads directory.
-	2. Move ‘SuppFullArchive.RData’ to the local directory.
-```bash
-   ./MI-POGUE/$ cd ~/Downloads/SuppFullArchive.RData ./
-```
-  3. Run ```./$ ./yeast_analysis.sh```, which performs the following actions:
-      1. Runs ./$ Rscript source_files/exportGrowthData2Python.R This script unpacks the gene expression data from the RData archive to text files.
-      2. Downloads [ugrr_data.txt](http://genomics-pubs.princeton.edu/grr/) using ```./$ curl -O http://genomics-pubs.princeton.edu/grr/jtv/ugrr_data.txt```
-      3. Downloads the following Series Matrix files from the Gene Expression Omnibus:
-        1. [GSE42215](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42215/matrix/GSE42215_series_matrix.txt.gz)
-        2. [GSE42240](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42240/matrix/GSE42240_series_matrix.txt.gz)
-        3. [GSE42527](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42527/matrix/GSE42527_series_matrix.txt.gz)
-      4. Runs ```./$ python source_files/readHolstegeData.py```
-      5. Runs ```./$ python source_files/MetaDataProcessing.py```
-      6. Runs  ```./$ python source_files/gather_data.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -o saccer```
-      7. Runs ```./$ python -m scoop -n <num-procs> source_files/montecarlo_crossvalid_minimal.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -l 0.001```
-      	1. It is highly recommended that you run this on a cluster with 16+ cores as feature selection can run for many days on a single processor. The scoop module is required for parallelization. Feature selection takes just under 12 hours (11:56:42) on a 96-core cluster. 
-      	2. The datasets in questions are fairly large, so having a decent amount of RAM is imperative if you want to analyze large datasets.
-        3. This script outputs:
-					1. corr_feat_20-nonresponsive_removed_feat-avg.pkl — list of features that best predict growth
-					2. corr_bins_20-nonresponsive_removed_feat-avg.pkl — discretization of each feature
-					3. eff_results_nonresponsive_removed_feat.pkl — the efficiencies for each number of features
-					4. lstsq_results_nonresponsive_removed_feat.pkl — the least square deviations for each number of features
-				4. The default number of processors is 8. By changing <num-procs> in yeast_analysis.sh to an appropriate value for your cluster, the program can be set to use more cores.
-				5. The default value of lambda is 0.001 (the value that determines how strongly the state-space occupancy term, the second term in Eq. (4), is weighted). By changing the value after the -l flag, the value of lambda can be changed.
-				6. To perform feature selection beyond 20 features (or for fewer), change the value of MAX_FEATS in line 708 of ```source_files/montecarlo_crossvalid_minimal.py``` to the desired number of features. This will change the number in the out output file.
-			8. Runs ```./$ python -m scoop -n <num-procs> source_files/montecarlo_crossvalid_minimal.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -l 0.001 -b``` with the -b runs the model using the genes identified in the *S. cerevisiae* iFF708 and yeast7 metabolic network reconstructions.
+	1. Download data from Airoldi *et al.* Predicting cellular growth from gene expression signatures *PLoS Comput. Biol.* **5**(1):e1000257 2009.  [Dataset S1](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000257#s5) This will download SuppFullArchive.RData to your Downloads directory.
+	2. Move ‘SuppFullArchive.RData’ to the local directory.```./MI_POGUE/$ cd ~/Downloads/SuppFullArchive.RData ./```
+	3. Run ```./$ ./yeast_analysis.sh```, which performs the following actions:
+		1. Runs ./$ Rscript source_files/exportGrowthData2Python.R This script unpacks the gene expression data from the RData archive to text files.
+		2. Downloads [ugrr_data.txt](http://genomics-pubs.princeton.edu/grr/) using ```./$ curl -O http://genomics-pubs.princeton.edu/grr/jtv/ugrr_data.txt```
+		3. Downloads the following Series Matrix files from the Gene Expression Omnibus:
+			1. [GSE42215](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42215/matrix/GSE42215_series_matrix.txt.gz)
+			2. [GSE42240](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42240/matrix/GSE42240_series_matrix.txt.gz)
+			3. [GSE42527](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42527/matrix/GSE42527_series_matrix.txt.gz)
+		4. Runs ```./$ python source_files/readHolstegeData.py```
+		5. Runs ```./$ python source_files/MetaDataProcessing.py```
+		6. Runs  ```./$ python source_files/gather_data.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -o saccer```
+		7. Runs ```./$ python -m scoop -n <num-procs> source_files/montecarlo_crossvalid_minimal.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -l 0.001```
+			1. It is highly recommended that you run this on a cluster with 16+ cores as feature selection can run for many days on a single processor. The scoop module is required for parallelization. Feature selection takes just under 12 hours (11:56:42) on a 96-core cluster. 
+			2. The datasets in questions are fairly large, so having a decent amount of RAM is imperative if you want to analyze large datasets.
+			3. This script outputs:
+				1. corr_feat_20-nonresponsive_removed_feat-avg.pkl — list of features that best predict growth
+				2. corr_bins_20-nonresponsive_removed_feat-avg.pkl — discretization of each feature
+				3. eff_results_nonresponsive_removed_feat.pkl — the efficiencies for each number of features
+				4. lstsq_results_nonresponsive_removed_feat.pkl — the least square deviations for each number of features
+			4. The default number of processors is 8. By changing <num-procs> in yeast_analysis.sh to an appropriate value for your cluster, the program can be set to use more cores.
+			5. The default value of lambda is 0.001 (the value that determines how strongly the state-space occupancy term, the second term in Eq. (4), is weighted). By changing the value after the -l flag, the value of lambda can be changed.
+			6. To perform feature selection beyond 20 features (or for fewer), change the value of MAX_FEATS in line 708 of ```source_files/montecarlo_crossvalid_minimal.py``` to the desired number of features. This will change the number in the out output file.
+		8. Runs ```./$ python -m scoop -n <num-procs> source_files/montecarlo_crossvalid_minimal.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -l 0.001 -b``` with the -b runs the model using the genes identified in the *S. cerevisiae* iFF708 and yeast7 metabolic network reconstructions.
 4. *E. coli* analysis pipeline
-  1. Runs ```./$ ./ecoli_analysis.sh```, which performs the following actions:
+	1. Runs ```./$ ./ecoli_analysis.sh```, which performs the following actions:
 	2. Downloads data from Carrera *et al.* An integrative, multi‐scale, genome‐wide model reveals the phenotypic landscape of *Escherichia coli*. *Mol. Syst. Biol.* 2014 **10**(7):735. [Supplementary Dataset S1](http://msb.embopress.org/content/msb/10/7/735/DC8/embed/inline-supplementary-material-8.zip?download=true)
-  3. Downloads the annotations: DatasetS1_CarreraAnnotations.xlsx
-  4. Runs ```./$ python source_files/importCarreraData.py``` which converts the text files to a pickle of a Python data frame.
-  5. Runs ```./$ python source_files/gather_data.py -e SF1-EcoMAC/ecoli_compendium_df.pkl -r DatasetS1_CarreraAnnotations.xlsx -N carrera-corr -o ecoli``` which calculates the correlations between genes as well as the eigengenes.
+	3. Downloads the annotations: DatasetS1_CarreraAnnotations.xlsx
+	4. Runs ```./$ python source_files/importCarreraData.py``` which converts the text files to a pickle of a Python data frame.
+	5. Runs ```./$ python source_files/gather_data.py -e SF1-EcoMAC/ecoli_compendium_df.pkl -r DatasetS1_CarreraAnnotations.xlsx -N carrera-corr -o ecoli``` which calculates the correlations between genes as well as the eigengenes.
 	6. Runs ```./$ python -m scoop -n <num-procs> source_files/montecarlo_crossvalid_minimal.py -e SF1-EcoMAC/ecoli_compendium_df.pkl -r DatasetS1_CarreraAnnotations.xlsx -l 0.05 -N carrera-corr```
-    1. See the comments under step 6 of the *S. cerevisiae* analysis pipeline for how to change the number of processors, the value of lambda, and the maximum number of features.
-      2. This script outputs:
-        1. corr_feat_20-carrera-corr_feat-avg.pkl — list of features that best predict growth
-        2. corr_bins_20-carrera-corr_feat-avg.pkl — discretization of each feature
-        3. eff_results_carrera-corr_feat.pkl — the efficiencies for each number of features
-        4. lstsq_results_carrera-corr_feat.pkl — the least square deviations for each number of features
-      3. The default value of lambda is 0.05.
-  7. Runs ```./$ python -m scoop -n <num-procs> source_files/montecarlo_crossvalid_minimal.py -e SF1-EcoMAC/ecoli_compendium_df.pkl -r DatasetS1_CarreraAnnotations.xlsx -l 0.05 -N carrera-corr -b```, which runs the model using the genes identified in the *E. coli* iJO1366 metabolic network reconstruction.
-  8. Generating figures from the main text (to be done after running *E. coli* analysis and *S. cerevisiae* analysis)
-    1. Runs ```./$ ./generate_figures.sh``` , which runs:
-      1. ```./$ python source_files/figure-1.py -Y nonresponsive_removed -E carrera-corr -y metadata_nonresponsive_removed.pkl -e DatasetS1_CarreraAnnotations.xlsx```
-      2. This script outputs:
-        1. figure-1_carrera-corr.svg, which shows the accuracy of the E. coli data as the number of features is increased.
-        2. figure-1_nonresponsive-removed.svg, which shows the accuracy of the S. cerevisiae data as the number of features is increased.
+		1. See the comments under step 6 of the *S. cerevisiae* analysis pipeline for how to change the number of processors, the value of lambda, and the maximum number of features.
+		2. This script outputs:
+			1. corr_feat_20-carrera-corr_feat-avg.pkl — list of features that best predict growth
+			2. corr_bins_20-carrera-corr_feat-avg.pkl — discretization of each feature
+			3. eff_results_carrera-corr_feat.pkl — the efficiencies for each number of features
+			4. lstsq_results_carrera-corr_feat.pkl — the least square deviations for each number of features
+		3. The default value of lambda is 0.05.
+	7. Runs ```./$ python -m scoop -n <num-procs> source_files/montecarlo_crossvalid_minimal.py -e SF1-EcoMAC/ecoli_compendium_df.pkl -r DatasetS1_CarreraAnnotations.xlsx -l 0.05 -N carrera-corr -b```, which runs the model using the genes identified in the *E. coli* iJO1366 metabolic network reconstruction.
+5. Generating figures from the main text (to be done after running *E. coli* analysis and *S. cerevisiae* analysis)
+	1. Runs ```./$ ./generate_figures.sh``` , which runs:
+		1. ```./$ python source_files/figure-1.py -Y nonresponsive_removed -E carrera-corr -y metadata_nonresponsive_removed.pkl -e DatasetS1_CarreraAnnotations.xlsx```
+	2. This script outputs:
+		1. figure-1_carrera-corr.svg, which shows the accuracy of the E. coli data as the number of features is increased.
+		2. figure-1_nonresponsive_removed.svg, which shows the accuracy of the S. cerevisiae data as the number of features is increased.
         3. figure-2_carrera-corr_nonresponsive_removed.svg which is equivalent to Figure 2 in the paper.
         4. figure-3_carrera-corr_nonresponsive_removed.svg which is equivalent to Figure 3 in the manuscript.
 6. Linear Model analysis (for *S. cerevisiae* only) ```./$ ./linear_model_analysis.sh``` , which performs the following actions:
@@ -87,10 +83,9 @@ Code and supporting data to run Model-Independent Prediction of Growth Using Exp
 		1. This script requires the rpy2 packages which conflicts with some of the other python dependencies. We recommend using a virtual machine as detailed below.
 		2. Runs ```./$ Rscript source_files/iterativeModules.R```  to generate gene lists (Dataset S3: Eigengene_gene_lists.xlsx).
 			1. By default we restrict the number of threads to 12 using the command allowWGCNAthreads(nThreads=12) in line 10 of the script.
-      2. The script attempts to install the WGCNA and flashClust R packages from Bioconductor. Comment out lines 5 and 7 if they are already installed.
-      3. Upload the gene lists in files named (“eigengene_<num>_stage.txt”) to PANTHER.
-8. Correlating eigengenes with growth (Dataset S4: Ecoli_eigengene_interpretation.xlsx) 
-    ```./$ ./correlation_analysis.sh```, which performs the following actions:
+	2. The script attempts to install the WGCNA and flashClust R packages from Bioconductor. Comment out lines 5 and 7 if they are already installed.
+	3. Upload the gene lists in files named (“eigengene_<num>_stage.txt”) to PANTHER.
+8. Correlating eigengenes with growth (Dataset S4: Ecoli_eigengene_interpretation.xlsx) ```./$ ./correlation_analysis.sh```, which performs the following actions:
 	1. Runs ```./$ python source_files/corrEvecGrowth.py```
 
  
