@@ -5,41 +5,45 @@ Code and supporting data to run Model-Independent Prediction of Growth Using Exp
 
 
 # Overview:
-  1.	Software used:
-    1.	Python (2.7)
-      1.	Required modules
-        1.	Numpy
-        2.	Pandas (with the xlrd)
-        3.	Scikit-learn
-        4.	Matplotlib
-        5.	rpy2 (needed for WGCNA analysis only)
-        6.	scoop 
-    2.	R (3.5.2)
-      1.	Required modules (needed for WGCNA analysis only)
-        1.	Bioconductor 
-        2.	WGCNA
-        3.	flashClust
-  2.	Download files from MI-POGUE/
-    1.	This will unpack the source code, scripts to run the analyses, and the data.
-    2.	A directory called MI_POGUE/ will be created. It should contain 6 bash scripts.
-      	e.g., ./$ ls
-    	    correlation_analysis.sh        ecoli_analysis.sh
-    	    yeast_analysis.sh              generate_figures.sh
-          linear_model_analysis.sh       wgcna_analysis.sh
-    3.	Navigate to this directory. The subdirectories MI_POGUE/data and MI_POGUE/source_files contain the data and source code, respectively.
-  3.	S. cerevisiae analysis pipeline
-    1.	Download data from Airoldi et al (http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000257#s5) (Dataset S1) This will download SuppFullArchive.RData to your Downloads directory.
-    2.	Move ‘SuppFullArchive.RData’ to the local directory.
-    3.	Run ./$ ./yeast_analysis.sh , which performs the following actions:
-      1.	Run ./$ Rscript source_files/exportGrowthData2Python.R This script unpacks the gene expression data from the RData archive to text files.
-      2.	Downloads http://genomics-pubs.princeton.edu/grr/ using ./$ curl -O http://genomics-pubs.princeton.edu/grr/jtv/ugrr_data.txt
-      3.	Downloads the following Series Matrix files from the Gene Expression Omnibus:
-        1.	GSE42215 ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42215/matrix/GSE42215_series_matrix.txt.gz
-        2.	GSE42240 ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42240/matrix/GSE42240_series_matrix.txt.gz
-        3.	GSE42527 ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42527/matrix/GSE42527_series_matrix.txt.gz
-      4.	Runs ./$ python source_files/readHolstegeData.py
-      5.	Runs ./$ python source_files/MetaDataProcessing.py
-      6.	Runs  ./$ python source_files/gather_data.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -o saccer
+1. Software used:
+	1. Python (2.7)
+		1. Numpy
+		2. Pandas (with the xlrd package installed)
+		3. Scikit-learn
+		4. Matplotlib
+		5. rpy2 (needed for WGCNA analysis only)
+		6. scoop (required for parallelization)
+	2. R (3.5.2)
+		1. Bioconductor 
+		2. WGCNA
+		3. flashClust
+2. Download files from MI-POGUE/
+	1. This will unpack the source code, scripts to run the analyses, and the data.
+	2. A directory called MI_POGUE/ will be created. It should contain 6 bash scripts. e.g.,
+```bash
+   ./$ cd MI-POGUE
+	 ./MI-POGUE/$ ls
+					correlation_analysis.sh        ecoli_analysis.sh
+					yeast_analysis.sh              generate_figures.sh
+					linear_model_analysis.sh       wgcna_analysis.sh
+```
+  3. Navigate to this directory. The subdirectories MI_POGUE/data and MI_POGUE/source_files contain the data and source code, respectively.
+3. S. cerevisiae analysis pipeline
+  1. Download data from Airoldi *et al.* Predicting cellular growth from gene expression signatures *PLoS Comput. Biol.* **5**(1):e1000257 2009.  [Dataset S1](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1000257#s5) This will download SuppFullArchive.RData to your Downloads directory.
+	2. Move ‘SuppFullArchive.RData’ to the local directory.
+```bash
+   ./MI-POGUE/$ cd ~/Downloads/SuppFullArchive.RData ./
+```
+  3. Run ```./$ ./yeast_analysis.sh```, which performs the following actions:
+      1. Runs ./$ Rscript source_files/exportGrowthData2Python.R This script unpacks the gene expression data from the RData archive to text files.
+      2. Downloads [ugrr_data.txt](http://genomics-pubs.princeton.edu/grr/) using ```./$ curl -O http://genomics-pubs.princeton.edu/grr/jtv/ugrr_data.txt```
+      3. Downloads the following Series Matrix files from the Gene Expression Omnibus:
+        1. [GSE42215](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42215/matrix/GSE42215_series_matrix.txt.gz)
+        2. [GSE42240](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42240/matrix/GSE42240_series_matrix.txt.gz)
+        3. [GSE42527](ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE42nnn/GSE42527/matrix/GSE42527_series_matrix.txt.gz)
+      4. Runs ```./$ python source_files/readHolstegeData.py```
+      5. Runs ```./$ python source_files/MetaDataProcessing.py```
+      6. Runs  ./$ python source_files/gather_data.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -o saccer
       7.	Runs ./$ python -m scoop -n <num-procs> source_files/montecarlo_crossvalid_minimal.py -e data_nonresponsive_removed.pkl -r metadata_nonresponsive_removed.pkl -N nonresponsive_removed -l 0.001
         1.	See the comments under step 6 of the E. coli analysis pipeline for how to change the number of processors, the value of lambda, and the maximum number of features.
       8.	Running with the -b runs the model using the genes identified in the E. coli iFF708 and yeast7 metabolic network reconstructions    
