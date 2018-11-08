@@ -50,16 +50,16 @@ try:
     org = 'ecoli'
     WEIGHTS = 'distance'
     BIOMASS_PRECURSORS= False
+    GROWTH_ONLY=False
     try:
-        opts, args = getopt.getopt(argv[1:], "he:k:l:N:r:o:ub",
+        opts, args = getopt.getopt(argv[1:], "he:k:l:N:r:o:ubg",
                                    ["help","expression-file=","num-neighbors="
-                                    "lambda=","name=","growth-rate=","organism=","uniform-weights"
-                                    "biomass-precursors"])
+                                    "lambda=","name=","growth-rate=","organism=",
+                                    "uniform-weights","biomass-precursors","growth-only"])
     except getopt.error, msg:
         raise Usage(msg)
     # option processing
     for option, value in opts:
-        ## BOUNDONLEFT True in US, False in England
         WEIGHTS = 'uniform' if option == "-u" else 'distance'
         if option in ("-h", "--help"):
             raise Usage(help_message)
@@ -77,11 +77,15 @@ try:
             WEIGHTS='uniform'
         if option in ("-b","--biomass-precursors"):
             BIOMASS_PRECURSORS = True
+        if option in ("-g","--growth-only"):
+            GROWTH_ONLY = True
         if option in ("-o","--organism"):
             if value.startswith(('E','e')):
                 org = 'ecoli'
             if value.startswith(('Y','y','S','s')):
                 org = 'saccer'
+    if GROWTH_ONLY:
+        NAME+='-growth-only'
 
 except Usage, err:
     print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
@@ -92,11 +96,6 @@ def SAVE(obj,fn):
     with open(fn,'wb') as fh:
         cp.dump(obj,fh,-1)
     return 0
-
-def LOAD(fn):
-    with open(fn,'rb') as fh:
-        X = cp.load(fh)
-    return X
 
 def group_membership(dat,bd_l):
     if dat.ndim<2:
@@ -109,7 +108,7 @@ def group_membership(dat,bd_l):
     return gm.groupby(gm.columns.tolist())
 
 def convert_deletion2orf(gndat,growth):
-    d2orf_df = LOAD('deletion2orf_df.pkl')
+    d2orf_df = pa.read_pickle('deletion2orf_df.pkl')
     d2orf_df = d2orf_df.set_index('Entry')
     commonNames = gndat.index.get_level_values(1).unique()
     orfs = d2orf_df.loc[commonNames[1:],'ORF']
@@ -131,11 +130,11 @@ def convert_deletion2orf(gndat,growth):
 try:
     if FN.endswith('.pkl'):
         ## use the transpose to put the genes in COLUMNS and the experimental conditions in ROWS
-        sc_gndat = LOAD(FN).T
+        sc_gndat = pa.read_pickle(FN).T
     elif FN.endswith('.csv'):
         sc_gndat = pa.read_table(FN).T
     if GFN.endswith('.pkl'):
-        sc_gr = LOAD(GFN)
+        sc_gr = pa.read_pickle(GFN)
     elif GFN.endswith('.csv'):
         sc_gr = pa.read_table(GFN)
     elif GFN.endswith('.xlsx'):
@@ -145,54 +144,59 @@ try:
         else:
             sc_gr = pa.read_excel(GFN)
     if org == 'saccer':
-        if NAME == 'nonresponsive_hughes' and not BIOMASS_PRECURSORS:
-            sc_gncorr = LOAD('sacCer_compendium_gncorr_nonresponsive_removed_df.pkl')
-            evecs = LOAD('yeast_evecs_nonresponsive_removed_df.pkl')
+        if NAME== 'nonresponsive_hughes' and not BIOMASS_PRECURSORS:
+            sc_gncorr = pa.read_pickle('sacCer_compendium_gncorr_nonresponsive_removed_df.pkl')
+            evecs = pa.read_pickle('yeast_evecs_nonresponsive_removed_df.pkl')
         elif BIOMASS_PRECURSORS:
             sc_gncorr = sc_gndat
         else:
-            sc_gncorr = LOAD('sacCer_compendium_gncorr_%s_df.pkl' % NAME)
-            evecs = LOAD('yeast_evecs_%s_df.pkl' % NAME)
+            sc_gncorr = pa.read_pickle('sacCer_compendium_gncorr_%s_df.pkl' % NAME)
+            evecs = pa.read_pickle('yeast_evecs_%s_df.pkl' % NAME)
     elif org=='ecoli':
         if NAME == 'carrera-corr' and not BIOMASS_PRECURSORS:
-            sc_gncorr = LOAD('ecoli_compendium_gncorr_%s_df.pkl' % NAME)
-            evecs = LOAD('ecoli_evecs_%s_df.pkl' % NAME)
+            sc_gncorr = pa.read_pickle('ecoli_compendium_gncorr_%s_df.pkl' % NAME)
+            evecs = pa.read_pickle('ecoli_evecs_%s_df.pkl' % NAME)
         elif BIOMASS_PRECURSORS:
             sc_gncorr = sc_gndat
         else:
-            sc_gncorr = LOAD('ecoli_compendium_gncorr_%s_df.pkl' % NAME)
-            evecs = LOAD('ecoli_evecs_%s_df.pkl' % NAME)
+            sc_gncorr = pa.read_pickle('ecoli_compendium_gncorr_%s_df.pkl' % NAME)
+            evecs = pa.read_pickle('ecoli_evecs_%s_df.pkl' % NAME)
 
     ## need to put in function to calculate correlations here.
     if org=='saccer':
-        if NAME=='holstege':
+        if NAME.startswith('holstege'):
             sc_gndat,sc_gr = convert_deletion2orf(sc_gndat,sc_gr)
             sc_gncorr,__ = convert_deletion2orf(sc_gncorr,sc_gr)
-        elif NAME=='all':
+        elif NAME.startswith('all'):
             sc_gr = sc_gr.Growth_Rate.astype(float)
-        elif NAME=='nonresponsive_removed' and not BIOMASS_PRECURSORS:
+        elif NAME.startswith('nonresponsive_removed') and not BIOMASS_PRECURSORS:
             sc_gr = sc_gr[[grp not in ('Holstege','Hughes') for grp in sc_gr.Group]] ## remove the holstege and hughes data
             sc_gr = sc_gr.Growth_Rate.astype(float)
             sc_gndat = sc_gndat.loc[sc_gr.index]
             sc_gncorr = sc_gncorr.loc[sc_gr.index]
-        elif NAME=='nonresponsive_removed' and BIOMASS_PRECURSORS:
+        elif NAME.startswith('nonresponsive_removed') and BIOMASS_PRECURSORS:
             sc_gr = sc_gr[[grp not in ('Holstege','Hughes') for grp in sc_gr.Group]] ## remove the holstege and hughes data
             sc_gr = sc_gr.Growth_Rate.astype(float)
             sc_gndat = sc_gndat.loc[sc_gr.index]
             sc_gncorr = sc_gndat
-        elif NAME=='nonresponsive_hughes':
+        elif NAME.startswith('nonresponsive_hughes'):
+            sc_gr = sc_gr[[grp not in ('Holstege',) for grp in sc_gr.Group]] ## remove the holstege data ONLY
+            sc_gr = sc_gr.Growth_Rate.astype(float)
+            sc_gndat = sc_gndat.loc[sc_gr.index]
+            sc_gncorr = sc_gncorr.loc[sc_gr.index]
+        elif NAME.startswith('hughes_removed'):
             sc_gr = sc_gr[[grp not in ('Holstege',) for grp in sc_gr.Group]] ## remove the holstege data ONLY
             sc_gr = sc_gr.Growth_Rate.astype(float)
             sc_gndat = sc_gndat.loc[sc_gr.index]
             sc_gncorr = sc_gncorr.loc[sc_gr.index]
         else:
-            sc_gr = sc_gr.GrowthRate.astype(float)
+            sc_gr = sc_gr.Growth_Rate.astype(float)
     elif org=='ecoli':
-        if NAME=='carrera-corr' and BIOMASS_PRECURSORS:
+        if NAME.startswith('carrera-corr') and BIOMASS_PRECURSORS:
             sc_gr = sc_gr[sc_gr['Flag growth']==1]
             sc_gr = sc_gr['Growth rate (1/h)'].astype(float)
             sc_gncorr = sc_gncorr.loc[sc_gr.index]
-        elif NAME=='carrera-corr':
+        elif NAME.startswith('carrera-corr'):
             sc_gr = sc_gr[sc_gr['Flag growth']==1]
             sc_gr = sc_gr['Growth rate (1/h)'].astype(float)
             sc_gncorr = sc_gncorr.loc[sc_gr.index]
@@ -311,7 +315,7 @@ def initialize_model(filt,corr=True,feats=[],**kwargs):
     ##
     ## in both cases need to load this and sort it
     sc_gexp_phe = sc_gncorr#.iloc[gexp_cols,:]
-    sc_gr2 = sc_gr#.loc[:,'GrowthRate']
+    sc_gr2 = sc_gr#.loc[:,'Growth_Rate']
     if len(feats)>0:
         if sum([ft in sc_gexp_phe.columns.tolist() for ft in feats]) > 0:
             sc_gexp_phe = sc_gexp_phe.loc[:,feats]
@@ -465,12 +469,12 @@ Returns:
     DDF = pa.concat(REP_L,axis=0)
     OP = {}
     OP['Predicted'] = pa.concat([DDF.xs(_i,level='REP').Predicted for _i in range(NREP)],
-                                axis=1).mean(axis=1)
+                                axis=1,sort=True).mean(axis=1)
     OP['Actual'] = DDF.xs(0,level='REP').Actual
     OP['Noiseless'] = pa.concat([DDF.xs(_i,level='REP').Noiseless for _i in range(NREP)],
-                                axis=1).mean(axis=1)
-    OP['Downsampled'] = pa.concat([DDF.xs(_i,level='REP').Downsampled for _i in range(NREP)],
-                                  axis=1).mean(axis=1)
+                                axis=1,sort=True).mean(axis=1)
+    OP['Downsampled']=pa.concat([DDF.xs(_i,level='REP').Downsampled for _i in range(NREP)],
+                                  axis=1,sort=True).mean(axis=1)
     return pa.DataFrame(OP),fbins,efficiency
 
 
@@ -584,14 +588,18 @@ def select_features(ext='',F=16384.,K=7,P=0.1,kind='feat',start=0,nrep=1,err=.1,
     all_feats = evecs.columns.tolist()
     if not osp.exists('tmp'):
         os.mkdir('tmp')
-    if NAME == 'nonresponsive_hughes':
+    if NAME.startswith('nonresponsive_hughes'):
         yeast_bins = np.load('data/growth_bins_all.npy' )
     else:
-        yeast_bins = np.load('data/growth_bins_%s.npy' % ext.rsplit('_',1)[0])
+        if GROWTH_ONLY:
+            fnext = ext.rsplit('_',1)[0].split('-growth-only')[0]
+            yeast_bins = np.load('data/growth_bins_%s.npy' % fnext)
+        else:
+            yeast_bins = np.load('data/growth_bins_%s.npy' % ext.rsplit('_',1)[0])
     yeast_bins[0] = 0; yeast_bins[-1] = 10
     if start > 0:
-        all_bins = LOAD('tmp/corr_bins_%d-%s-avg.pkl' % (start,ext))
-        sel_feat= LOAD('tmp/corr_feat_%d-%s-avg.pkl' % (start,ext))
+        all_bins = pa.read_pickle('tmp/corr_bins_%d-%s-avg.pkl' % (start,ext))
+        sel_feat= pa.read_pickle('tmp/corr_feat_%d-%s-avg.pkl' % (start,ext))
     else:
         all_bins = [yeast_bins]
         sel_feat = []
@@ -602,8 +610,8 @@ def select_features(ext='',F=16384.,K=7,P=0.1,kind='feat',start=0,nrep=1,err=.1,
             testAll = True if jj==0 else False
             if not testAll:
                 _fn = './tmp/lstsq_%d_%s--r1.pkl' % (ii+1, ext)
-                _X = LOAD(_fn)
-                _Y = LOAD(_fn.replace('lstsq','eff'))
+                _X = pa.read_pickle(_fn)
+                _Y = pa.read_pickle(_fn.replace('lstsq','eff'))
                 _SER = _X + P*_Y
                 thr = _SER.min() + (_SER.max()-_SER.min()) * .5
                 THR =np.amin([np.amin(np.array(map(float,_SER[_SER<thr].index.tolist())))-1e-6,1])
@@ -646,7 +654,7 @@ def select_features(ext='',F=16384.,K=7,P=0.1,kind='feat',start=0,nrep=1,err=.1,
         for i in range(min(MAX_FEATS,len(all_feats))):
             WD = wd if wd != 'sel_feat' else sel_feat[i]
             fn = '%s_%d_%s--r1.pkl' % (WD,i+1,ext)
-            X = LOAD(fn)
+            X = pa.read_pickle(fn)
             if WD != 'sel_feat':
                 X_d[i]= X
             else:
@@ -666,8 +674,8 @@ def find_feature_and_bins(nfeat,ext,p=0.1):
     for data_fn in data_fn_l:
         eff_fn = data_fn.replace('lstsq','eff')
         _zz = int(osp.split(data_fn)[1].split('--r')[1].split('.')[0])
-        eff = LOAD(eff_fn)
-        delta = LOAD(data_fn)
+        eff = pa.read_pickle(eff_fn)
+        delta = pa.read_pickle(data_fn)
         feat_d[_zz] = delta + p*eff
     feat_df = pa.DataFrame(feat_d)
     srt = feat_df.rank(axis=0).mean(axis=1).sort_values()
@@ -691,7 +699,7 @@ Returns:
         sel_feat = np.load('data/%s_precursors_sysname.npy' % kind)
         cv_mc(sel_feat,False,n_neighbors=8,name='%s' % kind)
     elif org=='ecoli':
-        sel_feat = LOAD('data/%s_precursors_l.pkl' % kind)
+        sel_feat = pa.read_pickle('data/%s_precursors_l.pkl' % kind)
         cv_mc(sel_feat,False,n_neighbors=7,name='%s' % kind)
 
 
@@ -705,5 +713,5 @@ if __name__ == '__main__':
             biomass_precursors(kind='iJO1366',org=org)
     else:
         KIND='feat'
-        select_features('%s_%s' % (NAME,KIND),K=N_NEIGHBORS,P=LAMBDA,kind=KIND,MAX_FEATS=10)
+        select_features('%s_%s' % (NAME,KIND),K=N_NEIGHBORS,P=LAMBDA,kind=KIND,MAX_FEATS=20)
     sys.exit()

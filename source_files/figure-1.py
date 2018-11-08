@@ -86,6 +86,24 @@ def success_rate(X,t=[0.25,0.05]):
     pct_error = np.abs(X.Actual.sub(X.Predicted)/X.Actual)
     return dict([(tt,(pct_error<tt).sum()) for tt in t])
 
+def logseo(Z1,gexp,useRND=False,n_neighbors=7):
+    gseDF_L = []
+    for gse in Z1['GEO accession'].unique():
+        test = Z1['GEO accession']==gse
+        test_gr = Z1[test]['Growth rate (1/h)']
+        train_gr = Z1[~test]['Growth rate (1/h)']
+        test_gexp = gexp[test]
+        train_gexp = gexp[~test]
+        if useRND:
+            # update the training growth rate and gene expression
+            pass
+        clf_logseo= create_growth_rate_mapping(train_gexp,train_gr,n_neighbors=n_neighbors)
+        pred = clf_logseo.predict(test_gexp)
+        act = test_gr
+        gseDF = pa.DataFrame({'Predicted':pa.Series(pred,index=test_gexp.index),
+                              'Actual':test_gr})
+        gseDF_L.append(gseDF)
+    return pa.concat(gseDF_L,axis=0)
 
 def loexpo(Z1,gexp,annot,grp_keys=[],n_neighbors=8):
     DF_L = []
@@ -183,6 +201,8 @@ def select_model(ind,data_l,FEATS,method='STRAT',n_neighbors=8):
         df = loexpo(gr,ac_gexp,annot,['Group'],n_neighbors=n_neighbors)
     elif method == 'LO_GRO':
         df = loexpo(gr,ac_gexp,annot,['Growth_Rate'],n_neighbors=n_neighbors)
+    elif method == 'LO_GSEO':
+        df = loexpo(gr,ac_gexp,annot,['Growth_Rate'],n_neighbors=n_neighbors)
     elif method =='KFOLD':
         df = cv_kfold(gr,ac_gexp,5,n_neighbors=n_neighbors)
     elif method == 'STRAT':
@@ -265,7 +285,8 @@ def scatterplot_results(df_d):
                               'urea':'#FF7F0E', # ORANGE
                               'glutamate':'#FF7F0E'} # ORANGE
             grp_shape_d = {'Charles':'^','Gresham':'s','Slavov':'o'}
-            metadata = pa.read_pickle('metadata_%s.pkl' % NAME) # NAME=nonresponsive_removed
+            METANAME = NAME.split('-growth-only')[0]
+            metadata = pa.read_pickle('metadata_%s.pkl' % METANAME) # NAME=nonresponsive_removed
             cax = scax
         xvals = np.linspace(0,df.Actual.max()*1.25,20)
         cax.plot(xvals,xvals,color='k',ls='--')
@@ -420,10 +441,12 @@ def main():
         ECOLI_NAME= 'carrera-corr'
         YEAST_GFN = 'metadata_nonresponsive_removed.pkl' 
         ECOLI_GFN = 'data/DataSetS1_CarreraAnnotations.xlsx'
+        GROWTH_ONLY = False
         try:
-            opts, args = getopt.getopt(argv[1:], "hk:E:Y:e:y:",
+            opts, args = getopt.getopt(argv[1:], "hk:E:Y:e:y:g",
                                        ["help","num-neighbors=","e-coli-name=","yeast-name=",
-                                        "e-coli-growth-rate=","yeast-growth-rate="])
+                                        "e-coli-growth-rate=","yeast-growth-rate=",
+                                        "growth-only"])
         except getopt.error, msg:
             raise Usage(msg)
         # option processing
@@ -441,6 +464,12 @@ def main():
                 ECOLI_GFN=value ## this is the file name with annotations
             if option in ("-y","--yeast-growth-rate"):
                 YEAST_GFN=value ## this is the file name with annotations
+            if option in ("-g","--growth-only"):
+                GROWTH_ONLY = True
+        if GROWTH_ONLY:
+            ECOLI_NAME+='-growth-only'
+            YEAST_NAME+='-growth-only'
+
     except Usage, err:
         print >> sys.stderr, sys.argv[0].split("/")[-1] + ": " + str(err.msg)
         print >> sys.stderr, "\t for help use --help"
@@ -476,7 +505,7 @@ def main():
             sc_gncorr,__ = convert_deletion2orf(sc_gncorr,sc_gr)
         elif YEAST_NAME=='all':
             sc_gr = scannot.Growth_Rate.astype(float)
-        elif YEAST_NAME=='nonresponsive_removed':
+        elif YEAST_NAME.startswith('nonresponsive_removed'):
             ## remove the holstege and hughes data
             scannot = scannot[[grp not in ('Holstege','Hughes') for grp in scannot.Group]]
             sc_gr = scannot.Growth_Rate.astype(float)
@@ -484,6 +513,10 @@ def main():
         elif YEAST_NAME=='nonresponsive_hughes':
             ## remove the holstege data ONLY
             scannot = scannot[[grp not in ('Holstege',) for grp in scannot.Group]]
+            sc_gr = scannot.Growth_Rate.astype(float)
+            sc_gncorr = sc_gncorr.loc[sc_gr.index]
+        elif YEAST_NAME.startswith('hughes_removed'):
+            scannot =scannot[[grp not in ('Holstege', 'Hughes') for grp in scannot.Group]]
             sc_gr = scannot.Growth_Rate.astype(float)
             sc_gncorr = sc_gncorr.loc[sc_gr.index]
         else:
@@ -497,10 +530,14 @@ def main():
         print "Missing file(s). Run 'gather_yeast_data.py' first."
         raise
 
-    if YEAST_NAME == 'nonresponsive_hughes':
+    if YEAST_NAME.startswith('nonresponsive_hughes'):
         yeast_bins = np.load('data/growth_bins_nonresponsive_removed.npy')
     else:
-        yeast_bins = np.load('data/growth_bins_%s.npy' % YEAST_NAME)
+        if not GROWTH_ONLY:
+            yeast_bins = np.load('data/growth_bins_%s.npy' % YEAST_NAME)
+        else:
+            fnext = YEAST_NAME.split('-growth-only')[0]
+            yeast_bins = np.load('data/growth_bins_%s.npy' % fnext)
 
     ecoli_bins = np.array([0., 0.215, 0.265, 0.315, 0.365, 0.395, 0.425, 0.455,
                            0.485, 0.515, 0.545, 0.575, 0.605, 0.665, 0.825,
@@ -509,20 +546,21 @@ def main():
     sc_data_l = [scannot,sc_gr,sc_gncorr]
     #for org,d in dir_d.items():
     scfeat_fns_l = glob('corr_feat_*-%s_feat-avg.pkl' %  YEAST_NAME)
-    scbin_fns_l = glob('corr_bins_*-%s_feat-avg.pkl' %  YEAST_NAME)
-    scsel_fn = sorted(scfeat_fns_l, key = lambda f: int(f.split('-')[0].split('_')[-1]))[-1]
+    #scbin_fns_l = glob('corr_bins_*-%s_feat-avg.pkl' %  YEAST_NAME)
+    scsel_fn =sorted(scfeat_fns_l, key = lambda f: int(f.split('-')[0].split('_')[-1]))[-1]
     scnfeat = int(scsel_fn.split('-')[0].split('_')[-1])
     scbin_fn = 'corr_feat_%d-%s_feat-avg.pkl' % (scnfeat,YEAST_NAME)
     if len(scfeat_fns_l)>1:
         print "Cleaning intermediate saved files."
-        map(os.remove,filter(lambda f: f!=scsel_fn,scfeat_fns_l))
-        map(os.remove,filter(lambda f: f!=scbin_fn,scbin_fns_l))
+        #map(os.remove,filter(lambda f: f!=scsel_fn,scfeat_fns_l))
+        #map(os.remove,filter(lambda f: f!=scbin_fn,scbin_fns_l))
     YEAST_FEATS = pa.read_pickle(scsel_fn)
     ecfeat_fns_l = glob('corr_feat_*-%s_feat-avg.pkl' %  ECOLI_NAME)
     ecsel_fn= sorted(ecfeat_fns_l, key = lambda f: int(f.split('-')[0].split('_')[-1]))[-1]
     ECOLI_FEATS = pa.read_pickle(ecsel_fn)
     ec_data_l = [ecannot_phe,ec_gr,ec_gncorr.loc[ec_gr.index]]
     org_opt_method_d = {}
+    org_fnext_d = {}
     for org in ['ecoli','saccer']:
         opt_method_d = defaultdict(dict)
         FEATS = YEAST_FEATS  if org=='saccer' else ECOLI_FEATS
@@ -535,13 +573,14 @@ def main():
             opt_method_d[method]['R2']=r2_l
             opt_method_d[method]['RES']=res_l
         opt_method_df =pa.DataFrame(opt_method_d)
-        opt_method_df.to_pickle('opt_method_d_%s.pkl' % YEAST_NAME)
         NAME = YEAST_NAME if org=='saccer' else ECOLI_NAME
+        opt_method_df.to_pickle('opt_method_d_%s.pkl' % NAME)
         plot_trend(opt_method_df,NAME)
         org_opt_method_d[org] = opt_method_df
+        org_fnext_d[org]=NAME
     ## once the optimal parameters are found for lstsq and efficiency
     ## need to get the ec/sc results
-    org_optnfeat_d = figure_3(MAX_FEAT=scnfeat)
+    org_optnfeat_d = figure_3(org_fnext_d,MAX_FEAT=scnfeat)
     print org_optnfeat_d
     ec_result = org_opt_method_d['ecoli'].loc['RES','KFOLD'][org_optnfeat_d['ecoli']]
     E,F = bootstrap_R2(ec_result)
@@ -579,5 +618,5 @@ def plot_trend(opt_method_df,NAME,kw='R2'):
     return fig,ax
 
 if __name__ == '__main__':
-    figure_3(MAX_FEAT=20)
+    #figure_3(MAX_FEAT=20)
     main()
