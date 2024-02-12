@@ -199,7 +199,7 @@ SlavovHolstegeMetadata = pd.DataFrame(col_lbls)
 allMetaData = pd.concat([CharlesMetaData,GreshamMetaData,HughesMetaData,SlavovHolstegeMetadata])
 allMetaData = allMetaData.set_index("Name")
 #allMetaData.to_excel('allmetadata.xlsx')
-allMetaData.to_pickle('allmetadata.pkl')
+allMetaData.to_pickle('data/allmetadata.pkl')
 ## gather gene expression data
 charlesGenExp = pd.read_table('CharlesGenExp.tsv',header=0,index_col=0)
 greshamGenExp = pd.read_table('GreshamGenExp.tsv',header=0,index_col=0)
